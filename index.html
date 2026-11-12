@@ -1,0 +1,756 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<link rel="icon" href="data:," />
+<title>RSVP Speed Reader</title>
+<style>
+  :root{
+    --bg:#f2f0eb;
+    --surface:#ffffff;
+    --surface-2:#e9e6df;
+    --ink:#191c1f;
+    --muted:#6d7278;
+    --line:#ddd9d0;
+    --stage:#121417;
+    --stage-2:#1b1e22;
+    --stage-ink:#f5f3ef;
+    --stage-muted:#9aa0a6;
+    --red:#ff3b1f;
+    --red-soft:#ff6a52;
+    --btn:#191c1f;
+    --btn-ink:#ffffff;
+    --chip:#ffffff;
+    --focus:#ff3b1f;
+    --shadow:0 10px 30px rgba(20,20,20,.08), 0 2px 8px rgba(20,20,20,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1113;
+      --surface:#1a1d20;
+      --surface-2:#24272b;
+      --ink:#f0eee9;
+      --muted:#9aa0a6;
+      --line:#2e3236;
+      --stage:#08090a;
+      --stage-2:#141619;
+      --btn:#f0eee9;
+      --btn-ink:#121417;
+      --chip:#1a1d20;
+      --shadow:0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+  }
+  button, input, textarea, select{font:inherit}
+  button, [role="button"], input[type="range"]{min-height:44px}
+  button{cursor:pointer}
+  button:focus-visible, input:focus-visible, textarea:focus-visible{outline:3px solid var(--focus); outline-offset:2px}
+
+  .wrap{max-width:880px;margin:0 auto;padding:20px 18px 40px}
+  @media (min-width:720px){ .wrap{padding:32px 28px 56px} }
+
+  .lede{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 16px;margin-bottom:16px}
+  .lede h1{font-size:28px;line-height:1.05;letter-spacing:-.03em;margin:0;font-weight:800}
+  .lede h1 span{color:var(--red)}
+  .lede p{margin:0;color:var(--muted);font-size:15px;max-width:420px}
+  @media (min-width:720px){ .lede h1{font-size:36px} }
+
+  /* ---------- STAGE ---------- */
+  .stage{
+    background:var(--stage);
+    color:var(--stage-ink);
+    border-radius:20px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  .stage-top{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:14px 18px 0;
+    font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;
+  }
+  .status{display:flex;align-items:center;gap:8px;color:var(--stage-muted)}
+  .dot{width:8px;height:8px;border-radius:999px;background:#555;flex:none}
+  .dot.live{background:var(--red);box-shadow:0 0 0 5px rgba(255,59,31,.18)}
+  .pos{color:var(--stage-muted);font-variant-numeric:tabular-nums;letter-spacing:.06em;text-transform:none;font-size:13px;font-weight:600}
+
+  .word-zone{padding:10px 12px 4px;position:relative}
+  .guide{height:18px;position:relative;margin:0 8px}
+  .guide::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(255,255,255,.14)}
+  .guide::after{content:"";position:absolute;left:50%;top:2px;transform:translateX(-50%);width:2px;height:14px;background:var(--red);border-radius:2px}
+  .guide.bottom{transform:scaleY(-1)}
+
+  .word{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+    align-items:baseline;
+    min-height:104px;
+    align-content:center;
+    font-weight:700;
+    letter-spacing:-.02em;
+    line-height:1;
+    user-select:none;
+    padding:6px 0;
+  }
+  .word.small{font-size:clamp(34px,7.5vw,52px)}
+  .word.medium{font-size:clamp(42px,9vw,64px)}
+  .word.large{font-size:clamp(50px,11vw,80px)}
+  /* Side tracks are equal and shrinkable, so the anchor column stays on the guide.
+     Flex end-alignment makes any residual overflow spill outward, not across the anchor. */
+  .pre{display:flex;justify-content:flex-end;white-space:pre;min-width:0}
+  .anchor{color:var(--red);text-align:center;padding:0 1px;white-space:pre}
+  .post{display:flex;justify-content:flex-start;white-space:pre;min-width:0}
+  /* Fallback for tokens too long to fit even when scaled down: wrap, centred */
+  .word.fit-fallback{display:block;text-align:center;line-height:1.15;overflow-wrap:anywhere;padding:6px 8px}
+  .word.fit-fallback .pre, .word.fit-fallback .post{display:inline;white-space:normal}
+  .word.fit-fallback .anchor{white-space:normal}
+  .word-empty{grid-column:1/-1;display:none;text-align:center;color:var(--stage-muted);font-weight:600;font-size:18px;letter-spacing:0;line-height:1.4;padding:0 20px}
+
+  .context{
+    min-height:26px;text-align:center;color:var(--stage-muted);font-size:14px;
+    padding:2px 18px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .context b{color:var(--stage-ink);font-weight:700}
+  .context .dim{opacity:.55}
+
+  .progress-wrap{padding:16px 18px 6px}
+  input[type="range"].seek{
+    -webkit-appearance:none;appearance:none;width:100%;height:44px;background:transparent;margin:0;display:block;
+  }
+  input[type="range"].seek::-webkit-slider-runnable-track{height:6px;border-radius:999px;background:linear-gradient(to right, var(--red) var(--fill,0%), #33373c var(--fill,0%))}
+  input[type="range"].seek::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:999px;background:#fff;border:3px solid var(--red);margin-top:-8px;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+  input[type="range"].seek::-moz-range-track{height:6px;border-radius:999px;background:#33373c}
+  input[type="range"].seek::-moz-range-progress{height:6px;border-radius:999px;background:var(--red)}
+  input[type="range"].seek::-moz-range-thumb{width:16px;height:16px;border-radius:999px;background:#fff;border:3px solid var(--red)}
+  .progress-meta{display:flex;justify-content:space-between;color:var(--stage-muted);font-size:12.5px;font-variant-numeric:tabular-nums;padding:0 2px 14px}
+
+  /* ---------- TRANSPORT ---------- */
+  .transport{
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    padding:16px 14px 18px;flex-wrap:wrap;
+  }
+  .tbtn{
+    border:1px solid var(--line);background:var(--surface);color:var(--ink);
+    border-radius:999px;padding:0 16px;min-width:52px;height:48px;
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    font-weight:700;font-size:14px;
+  }
+  .tbtn:active{transform:scale(.97)}
+  .tbtn svg{width:20px;height:20px;flex:none}
+  .play{
+    background:var(--red);border-color:var(--red);color:#fff;
+    min-width:132px;height:56px;padding:0 26px;font-size:16px;border-radius:999px;
+    box-shadow:0 8px 20px rgba(255,59,31,.28);
+  }
+  .play svg{width:22px;height:22px}
+  @media (max-width:479px){
+    .transport{gap:8px;padding-left:6px;padding-right:6px}
+    .tbtn{min-width:48px;padding:0 12px}
+    .play{min-width:108px;padding:0 18px}
+  }
+
+  /* ---------- PANELS ---------- */
+  .grid{display:grid;gap:14px;margin-top:14px}
+  @media (min-width:720px){ .grid{grid-template-columns:1.25fr .95fr} }
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow)}
+  .panel h2{margin:0 0 4px;font-size:15px;letter-spacing:-.01em}
+  .panel p.hint{margin:0 0 14px;color:var(--muted);font-size:13.5px}
+
+  .wpm-row{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+  .wpm-num{font-size:44px;line-height:1;font-weight:800;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+  .wpm-label{color:var(--muted);font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase}
+  .wpm-note{margin-left:auto;text-align:right;color:var(--muted);font-size:12.5px;line-height:1.35}
+  input[type="range"].speed{-webkit-appearance:none;appearance:none;width:100%;height:44px;background:transparent;margin:2px 0 4px;display:block}
+  input[type="range"].speed::-webkit-slider-runnable-track{height:6px;border-radius:999px;background:linear-gradient(to right, var(--red) var(--fill,50%), var(--surface-2) var(--fill,50%))}
+  input[type="range"].speed::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:999px;background:var(--ink);border:3px solid var(--surface);margin-top:-9px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+  input[type="range"].speed::-moz-range-track{height:6px;border-radius:999px;background:var(--surface-2)}
+  input[type="range"].speed::-moz-range-progress{height:6px;border-radius:999px;background:var(--red)}
+  input[type="range"].speed::-moz-range-thumb{width:18px;height:18px;border-radius:999px;background:var(--ink);border:3px solid var(--surface)}
+  .scale{display:flex;justify-content:space-between;color:var(--muted);font-size:11.5px;font-variant-numeric:tabular-nums;margin-bottom:12px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{
+    border:1px solid var(--line);background:var(--chip);color:var(--ink);
+    border-radius:999px;padding:0 14px;height:40px;min-height:40px;font-weight:700;font-size:13.5px;
+  }
+  .chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+  .chip small{font-weight:600;opacity:.65;margin-left:4px}
+
+  .setting{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-top:1px solid var(--line)}
+  .setting:first-of-type{border-top:0;padding-top:4px}
+  .setting div{flex:1;min-width:0}
+  .setting strong{display:block;font-size:14px}
+  .setting span{display:block;color:var(--muted);font-size:12.5px;line-height:1.4;margin-top:1px}
+  .toggle{
+    flex:none;width:56px;height:32px;min-height:32px;border-radius:999px;border:1px solid var(--line);
+    background:var(--surface-2);position:relative;padding:0;
+  }
+  .toggle::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:999px;background:var(--surface);box-shadow:0 1px 4px rgba(0,0,0,.25);transition:left .15s ease}
+  .toggle[aria-pressed="true"]{background:var(--red);border-color:var(--red)}
+  .toggle[aria-pressed="true"]::after{left:27px;background:#fff}
+  .seg{display:flex;background:var(--surface-2);border-radius:999px;padding:3px;flex:none}
+  .seg button{border:0;background:transparent;border-radius:999px;min-height:36px;height:36px;padding:0 14px;font-weight:700;font-size:13px;color:var(--muted)}
+  .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.15)}
+
+  /* ---------- INPUT ---------- */
+  .input-panel{margin-top:14px}
+  textarea{
+    width:100%;min-height:170px;resize:vertical;border:1px solid var(--line);border-radius:12px;
+    background:var(--bg);color:var(--ink);padding:14px;font-size:15px;line-height:1.6;
+  }
+  @media (prefers-color-scheme: dark){ textarea{background:#121416} }
+  .input-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;align-items:center}
+  .primary{background:var(--btn);color:var(--btn-ink);border:1px solid var(--btn);border-radius:999px;padding:0 20px;height:48px;font-weight:800;font-size:14.5px}
+  .secondary{background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:0 18px;height:48px;font-weight:700;font-size:14.5px}
+  .count{margin-left:auto;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+  .loaded-note{margin-top:10px;font-size:13px;color:var(--muted);display:none}
+  .loaded-note.show{display:block}
+  .loaded-note b{color:var(--ink)}
+  .pending-note{margin-top:10px;font-size:13px;color:var(--red);font-weight:600;display:none}
+  .pending-note.show{display:block}
+  .stage:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+
+  .tips{margin-top:14px;display:grid;gap:14px}
+  @media (min-width:720px){ .tips{grid-template-columns:1fr 1fr} }
+  .tips ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;line-height:1.65}
+  .tips ul b{color:var(--ink)}
+  kbd{font-family:ui-monospace, SFMono-Regular, Menlo, monospace;font-size:11.5px;background:var(--surface-2);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:1px 6px;color:var(--ink);white-space:nowrap}
+  .foot{color:var(--muted);font-size:12.5px;text-align:center;margin-top:22px;line-height:1.6}
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="lede">
+    <h1>Read one word<br>at a time<span>.</span></h1>
+    <p>Keep your eyes on the red letter. The words come to you — no scanning, no losing your place.</p>
+  </div>
+
+  <!-- STAGE -->
+  <section class="stage" id="stage" aria-label="Reader" tabindex="-1">
+    <div class="stage-top">
+      <div class="status"><span class="dot" id="dot"></span><span id="statusText">Ready</span></div>
+      <div class="pos" id="posText">0 / 0 words</div>
+    </div>
+
+    <div class="word-zone">
+      <div class="guide" aria-hidden="true"></div>
+      <div class="word medium" id="wordBox" aria-live="off">
+        <span class="word-empty" id="wordEmpty"></span>
+        <span class="pre"><span id="wPre"></span></span><span class="anchor" id="wAnchor"></span><span class="post"><span id="wPost"></span></span>
+      </div>
+      <div class="guide bottom" aria-hidden="true"></div>
+    </div>
+
+    <div class="context" id="contextLine" aria-hidden="true"></div>
+
+    <div class="progress-wrap">
+      <input class="seek" id="seek" type="range" min="0" max="0" value="0" step="1" aria-label="Seek through text" />
+      <div class="progress-meta"><span id="pctText">0%</span><span id="etaText">—</span></div>
+    </div>
+  </section>
+
+  <!-- TRANSPORT -->
+  <div class="transport" role="group" aria-label="Playback controls">
+    <button class="tbtn" id="restartBtn" aria-label="Restart from beginning" title="Restart">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+    </button>
+    <button class="tbtn" id="backBtn" aria-label="Back 10 words">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 12l8-6v12z"/><path d="M3 6h3v12H3z"/></svg><span>10</span>
+    </button>
+    <button class="tbtn play" id="playBtn" aria-label="Play">
+      <svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>
+      <svg id="pauseIcon" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="5" y="4" width="5" height="16" rx="1"/><rect x="14" y="4" width="5" height="16" rx="1"/></svg>
+      <span id="playLabel">Play</span>
+    </button>
+    <button class="tbtn" id="fwdBtn" aria-label="Forward 10 words">
+      <span>10</span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 12L5 6v12z"/><path d="M18 6h3v12h-3z"/></svg>
+    </button>
+  </div>
+
+  <div class="grid">
+    <!-- SPEED -->
+    <section class="panel" aria-label="Speed">
+      <h2>Speed</h2>
+      <p class="hint">Start where it feels easy. Push up in small steps.</p>
+      <div class="wpm-row">
+        <div><span class="wpm-num" id="wpmNum">350</span></div>
+        <div class="wpm-label">words<br>per min</div>
+        <div class="wpm-note" id="wpmNote">About 2× a typical<br>page-reading pace</div>
+      </div>
+      <input class="speed" id="speed" type="range" min="100" max="1000" step="5" value="350" aria-label="Words per minute" />
+      <div class="scale"><span>100</span><span>300</span><span>500</span><span>700</span><span>1000</span></div>
+      <div class="chips" role="group" aria-label="Speed presets">
+        <button class="chip" data-wpm="250">250<small>easy</small></button>
+        <button class="chip" data-wpm="350">350<small>steady</small></button>
+        <button class="chip" data-wpm="500">500<small>brisk</small></button>
+        <button class="chip" data-wpm="700">700<small>fast</small></button>
+        <button class="chip" data-wpm="900">900<small>sprint</small></button>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="panel" aria-label="Reading settings">
+      <h2>Reading feel</h2>
+      <p class="hint">Small pauses are where comprehension catches up.</p>
+
+      <div class="setting">
+        <div><strong>Smart pauses</strong><span>Hold a beat longer at commas, sentence ends, and on long words.</span></div>
+        <button class="toggle" id="smartToggle" aria-pressed="true" aria-label="Toggle smart pauses"></button>
+      </div>
+      <div class="setting">
+        <div><strong>Countdown</strong><span>Show 3 · 2 · 1 before starting, so your eyes settle on the anchor.</span></div>
+        <button class="toggle" id="countToggle" aria-pressed="true" aria-label="Toggle countdown"></button>
+      </div>
+      <div class="setting">
+        <div><strong>Word size</strong><span>Bigger is easier at high speed.</span></div>
+        <div class="seg" role="group" aria-label="Word size">
+          <button data-size="small" aria-pressed="false">S</button>
+          <button data-size="medium" aria-pressed="true">M</button>
+          <button data-size="large" aria-pressed="false">L</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- INPUT -->
+  <section class="panel input-panel" aria-label="Your text">
+    <h2>Your text</h2>
+    <p class="hint">Paste an article, a chapter, notes — anything. It stays on this page; nothing is sent anywhere.</p>
+    <textarea id="input" aria-label="Text to read" spellcheck="false"></textarea>
+    <div class="input-actions">
+      <button class="primary" id="loadBtn">Load &amp; play from the top</button>
+      <button class="secondary" id="sampleBtn">Demo passage</button>
+      <button class="secondary" id="clearBtn">Clear</button>
+      <span class="count" id="inputCount">0 words</span>
+    </div>
+    <p class="pending-note" id="pendingNote" role="status">Edits not loaded yet — the reader is still on the previous passage. Press <b>Load &amp; play</b> to switch.</p>
+    <p class="loaded-note" id="loadedNote"></p>
+  </section>
+
+  <div class="tips">
+    <section class="panel">
+      <h2>How to use it</h2>
+      <ul>
+        <li><b>Park your eyes on the red letter</b> and let it stay there. The anchor sits at each word's recognition point, so the word lands where your eye already is.</li>
+        <li><b>Don't chase the top speed.</b> Around 250–400 wpm most people keep full comprehension. 700+ is for skimming and re-reading familiar ground.</li>
+        <li><b>Lost the thread?</b> Jump back 10 words instead of restarting — the context line under the word shows your neighbors.</li>
+      </ul>
+    </section>
+    <section class="panel">
+      <h2>Shortcuts</h2>
+      <ul>
+        <li><kbd>Space</kbd> or <kbd>K</kbd> — play / pause</li>
+        <li><kbd>←</kbd> <kbd>→</kbd> — back / forward 10 words</li>
+        <li><kbd>↑</kbd> <kbd>↓</kbd> — speed up / slow down by 25 wpm</li>
+        <li><kbd>Home</kbd> — back to the beginning</li>
+        <li>Shortcuts work when the reader or its buttons have focus, or nothing does — not while typing or on other controls.</li>
+      </ul>
+    </section>
+  </div>
+
+  <p class="foot">RSVP — rapid serial visual presentation. One word, one spot, no eye movement.<br>Works best on light reading; for dense material, slow down and let the smart pauses do their job.</p>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var SAMPLE = "Here is the strange thing about reading. Your eyes do not glide smoothly across a line of text, the way you probably imagine they do. They jump. Each jump lands, holds still for a fraction of a second, takes in a small clump of words, and then jumps again. Most of the time you spend reading is not spent moving. It is spent stopped, gathering. This page removes the jumping. Instead of sending your eyes hunting across the page, it brings every word to exactly the same place, one after another, so the gathering is all that is left. The red letter is the anchor. It sits near the point in each word where your brain likes to land first, the spot that lets it recognize the whole word in a single glance. Keep your eyes parked on that letter and resist the urge to chase the words. They are coming to you. At three hundred and fifty words a minute, this probably feels brisk but manageable, like a brisk walk. At six hundred, it starts to feel like a jog. At nine hundred, you are sprinting, and sprinting is fine for a short stretch of familiar road, but nobody sprints through new country and remembers the scenery. That is the honest trade. Speed reading is not magic, and it does not repeal the limits of comprehension. What it does well is strip out the wasted motion, hold your attention in one place, and make skimming feel effortless. Use it for the article you only need the gist of, the notes you are reviewing for the third time, the chapter you want to preview before reading it properly. Slow it down for anything you actually need to think about. Now try it with something of your own. Copy a few paragraphs from whatever you were about to read, paste them below, and set a speed that feels almost too easy. Then nudge it up, ten words a minute at a time. The moment you notice you have stopped picturing what the words describe, you have found your ceiling. Back off a little from there. That number, not nine hundred, is your real reading speed, and it will climb with practice.";
+
+  var EMPTY_MSG = "Press play, or load your own text below.";
+  var MIN_FONT_PX = 22;       // smallest anchored font size before falling back to wrapped layout
+  var COUNT_MS = 450;
+
+  /* ---------------- state ----------------
+     idx       — word currently shown (position)
+     finished  — the passage has been read to the end (separate from position)
+     phase     — "idle" | "countdown" | "playing"
+  */
+  var words = [];             // [{text, pre, anchor, post, mult}]
+  var suffix = [0];           // suffix[i] = sum of mult for words[i..end]
+  var loadedText = "";
+  var idx = 0;
+  var finished = false;
+  var phase = "idle";
+  var timer = null;
+  var countN = 0;
+  var wordStart = 0;          // performance.now() when current word's dwell began
+  var wordDelay = 0;          // dwell scheduled for the current word (ms)
+  var wpm = 350;
+  var smart = true;
+  var countdownOn = true;
+
+  var $ = function(id){ return document.getElementById(id); };
+  var stage=$("stage"), wordBox=$("wordBox"), wPre=$("wPre"), wAnchor=$("wAnchor"), wPost=$("wPost"), wordEmpty=$("wordEmpty"),
+      statusText=$("statusText"), dot=$("dot"), posText=$("posText"), contextLine=$("contextLine"),
+      seek=$("seek"), pctText=$("pctText"), etaText=$("etaText"),
+      playBtn=$("playBtn"), playLabel=$("playLabel"), playIcon=$("playIcon"), pauseIcon=$("pauseIcon"),
+      speed=$("speed"), wpmNum=$("wpmNum"), wpmNote=$("wpmNote"),
+      input=$("input"), inputCount=$("inputCount"), loadedNote=$("loadedNote"), pendingNote=$("pendingNote");
+
+  /* ---------------- text handling ---------------- */
+  var segmenter = (typeof Intl!=="undefined" && Intl.Segmenter) ? new Intl.Segmenter(undefined,{granularity:"grapheme"}) : null;
+  function graphemes(str){
+    if(segmenter){ var out=[]; var it=segmenter.segment(str)[Symbol.iterator](), r; while(!(r=it.next()).done) out.push(r.value.segment); return out; }
+    return Array.from(str); // code points: never splits a surrogate pair
+  }
+  var WORDCH;
+  try { WORDCH = new RegExp("[\\p{L}\\p{N}]","u"); } catch(e){ WORDCH = /[A-Za-z0-9À-ɏͰ-ϿЀ-ӿ]/; }
+  function isWordG(g){ return WORDCH.test(g); }
+
+  function tokenize(text){
+    return text.split(/\s+/).filter(function(w){ return w.length>0; });
+  }
+  function countWords(text){ return tokenize(text).length; }
+
+  /* Optimal recognition point, chosen by grapheme. Tokens with no letters/digits anchor on their middle grapheme. */
+  function splitWord(w){
+    var g = graphemes(w);
+    var start=0, end=g.length-1;
+    while(start<g.length && !isWordG(g[start])) start++;
+    var a;
+    var letters;
+    if(start>=g.length){                   // no letters or digits at all: "—", "…", "***"
+      a = Math.floor((g.length-1)/2);
+      letters = g.length;
+    } else {
+      while(end>start && !isWordG(g[end])) end--;
+      letters = end-start+1;
+      var off = letters<=1?0 : letters<=5?1 : letters<=9?2 : letters<=13?3 : 4;
+      a = start+off;
+    }
+    return { text:w, pre:g.slice(0,a).join(""), anchor:g[a]||"", post:g.slice(a+1).join(""), letters:letters };
+  }
+
+  /* Smart-pause multiplier. Looks past closing quotes/brackets so  end."  and  word),  still pause. */
+  var CLOSERS = /["'”’»›)\]}>*_]+$/;
+  function multFor(tok){
+    if(!smart) return 1;
+    var core = tok.text.replace(CLOSERS,"");
+    var last = core.charAt(core.length-1);
+    var m = 1;
+    if(/[.!?…。！？]/.test(last)) m = 2.1;
+    else if(/[,;:—–、，；：]/.test(last)) m = 1.5;
+    if(tok.letters>=9) m *= 1.25;
+    else if(tok.letters>=6) m *= 1.1;
+    return m;
+  }
+  function recomputeTiming(){
+    suffix = new Array(words.length+1); suffix[words.length]=0;
+    for(var i=words.length-1;i>=0;i--){ words[i].mult = multFor(words[i]); suffix[i] = suffix[i+1]+words[i].mult; }
+  }
+  function baseMs(){ return 60000/wpm; }
+  function delayAt(i){ return words[i] ? baseMs()*words[i].mult : baseMs(); }
+
+  /* Remaining reading time, using the same delays playback uses. */
+  function remainingMs(){
+    if(!words.length || finished) return 0;
+    var rest = baseMs()*suffix[idx+1];
+    var cur;
+    if(phase==="playing" && timer){ cur = Math.max(0, wordDelay-(performance.now()-wordStart)); }
+    else cur = delayAt(idx);
+    return rest+cur;
+  }
+
+  function fmtTime(sec){
+    if(!isFinite(sec) || sec<0) sec=0;
+    sec = Math.ceil(sec);
+    var m=Math.floor(sec/60), s=sec%60;
+    return m>0 ? (m+"m "+(s<10?"0":"")+s+"s") : (s+"s");
+  }
+
+  /* ---------------- rendering ---------------- */
+  function showMessage(msg){
+    wordBox.classList.remove("fit-fallback"); wordBox.style.fontSize="";
+    wordEmpty.textContent = msg; wordEmpty.style.display="block";
+    wPre.textContent=wAnchor.textContent=wPost.textContent="";
+  }
+
+  function fitWord(){
+    wordBox.classList.remove("fit-fallback");
+    wordBox.style.fontSize="";
+    if(!wAnchor.textContent) return;
+    var avail = wordBox.clientWidth;
+    var aW = wAnchor.getBoundingClientRect().width;
+    var need = Math.max(wPre.getBoundingClientRect().width, wPost.getBoundingClientRect().width);
+    if(need <= (avail-aW)/2 - 2) return;
+    var base = parseFloat(getComputedStyle(wordBox).fontSize);
+    // everything scales linearly: need*s <= (avail - aW*s)/2 - 2
+    var s = (avail/2 - 2)/(need + aW/2);
+    if(base*s >= MIN_FONT_PX){ wordBox.style.fontSize = (base*s)+"px"; }
+    else { wordBox.classList.add("fit-fallback"); wordBox.style.fontSize = Math.min(base, Math.max(base*0.5, MIN_FONT_PX))+"px"; }
+  }
+
+  function render(){
+    var total=words.length;
+    posText.textContent = total ? (idx+1)+" / "+total+" words" : "0 / 0 words";
+    seek.max = Math.max(total-1,0);
+    if(document.activeElement!==seek) seek.value = idx;
+    var fill = total>1 ? (idx/(total-1))*100 : (total?100:0);
+    seek.style.setProperty("--fill", fill+"%");
+    var pct = !total ? 0 : finished ? 100 : Math.round((idx/total)*100);
+    pctText.textContent = pct+"%";
+    etaText.textContent = total ? (fmtTime(remainingMs()/1000)+" left at "+wpm+" wpm") : "—";
+
+    if(phase==="countdown"){ showMessage(String(countN)); contextLine.textContent=""; return; }
+    if(!total){ showMessage(EMPTY_MSG); contextLine.textContent=""; return; }
+
+    var w = words[idx];
+    wordEmpty.style.display="none";
+    wPre.textContent = w.pre; wAnchor.textContent = w.anchor; wPost.textContent = w.post;
+    fitWord();
+
+    var before = words.slice(Math.max(0,idx-3), idx).map(function(t){return t.text;}).join(" ");
+    var after = words.slice(idx+1, idx+4).map(function(t){return t.text;}).join(" ");
+    contextLine.textContent="";
+    var s1=document.createElement("span"); s1.className="dim"; s1.textContent = before ? "… "+before+"  " : "";
+    var b=document.createElement("b"); b.textContent=w.text;
+    var s2=document.createElement("span"); s2.className="dim"; s2.textContent = after ? "  "+after+" …" : "";
+    contextLine.appendChild(s1); contextLine.appendChild(b); contextLine.appendChild(s2);
+  }
+
+  /* Status text, dot, and the play button's visible + accessible label all derive from one state. */
+  function syncUI(){
+    var label, icon, status, live=false;
+    if(phase==="countdown"){ label="Cancel"; icon="pause"; status="Get ready"; }
+    else if(phase==="playing"){ label="Pause"; icon="pause"; status="Reading"; live=true; }
+    else if(finished){ label="Replay"; icon="play"; status="Finished"; }
+    else if(!words.length){ label="Play"; icon="play"; status="No text"; }
+    else { label="Play"; icon="play"; status = (idx>0 ? "Paused" : "Ready"); }
+    playLabel.textContent = label;
+    playBtn.setAttribute("aria-label", label);
+    playIcon.style.display = icon==="play" ? "" : "none";
+    pauseIcon.style.display = icon==="pause" ? "" : "none";
+    statusText.textContent = status;
+    dot.className = "dot"+(live?" live":"");
+    render();
+  }
+
+  /* ---------------- playback ---------------- */
+  function stopTimer(){ if(timer){ clearTimeout(timer); timer=null; } }
+
+  function scheduleCurrent(){
+    stopTimer();
+    wordDelay = delayAt(idx);
+    wordStart = performance.now();
+    timer = setTimeout(advance, wordDelay);
+  }
+
+  function advance(){
+    timer = null;
+    if(phase!=="playing") return;
+    if(idx >= words.length-1){          // last word has had its full dwell
+      finished = true; phase = "idle"; syncUI(); return;
+    }
+    idx++;
+    scheduleCurrent();
+    render();
+  }
+
+  function startReading(){
+    phase = "playing";
+    scheduleCurrent();
+    syncUI();
+  }
+
+  function play(){
+    if(!words.length){
+      loadFromInput();
+      if(!words.length){ input.focus(); return; }
+    }
+    if(finished){ idx = 0; finished = false; }
+    if(countdownOn){
+      stopTimer();
+      phase = "countdown"; countN = 3; syncUI();
+      var tick = function(){
+        countN--;
+        if(countN>0){ render(); timer=setTimeout(tick, COUNT_MS); }
+        else { timer=null; startReading(); }
+      };
+      timer = setTimeout(tick, COUNT_MS);
+      return;
+    }
+    startReading();
+  }
+
+  function pause(){
+    stopTimer();
+    phase = "idle";
+    syncUI();
+  }
+
+  function togglePlay(){
+    if(phase==="idle") play(); else pause();
+  }
+
+  /* Single seek path for slider, skip buttons, shortcuts and restart. */
+  function seekTo(n){
+    if(!words.length) return;
+    idx = Math.max(0, Math.min(words.length-1, n|0));
+    finished = false;
+    if(phase==="playing") scheduleCurrent();   // new word gets its full dwell
+    // during countdown the countdown keeps running; it will start at the new position
+    syncUI();
+  }
+
+  /* ---------------- loading ---------------- */
+  function updatePending(){
+    var pending = input.value.trim()!=="" && input.value!==loadedText;
+    pendingNote.className = "pending-note"+(pending?" show":"");
+  }
+  function updateLoadedNote(){
+    if(words.length){
+      loadedNote.innerHTML = "";
+      loadedNote.appendChild(document.createTextNode("Loaded "));
+      var b1=document.createElement("b"); b1.textContent=words.length+(words.length===1?" word":" words"); loadedNote.appendChild(b1);
+      loadedNote.appendChild(document.createTextNode(" — about "));
+      var b2=document.createElement("b"); b2.textContent=fmtTime(baseMs()*suffix[0]/1000); loadedNote.appendChild(b2);
+      loadedNote.appendChild(document.createTextNode(" at "+wpm+" wpm."));
+      loadedNote.className="loaded-note show";
+    } else loadedNote.className="loaded-note";
+  }
+  function loadFromInput(){
+    stopTimer(); phase="idle";
+    loadedText = input.value;
+    words = tokenize(loadedText).map(splitWord);
+    recomputeTiming();
+    idx = 0; finished = false;
+    updateLoadedNote(); updatePending(); syncUI();
+  }
+
+  /* ---------------- controls ---------------- */
+  playBtn.addEventListener("click", togglePlay);
+  $("restartBtn").addEventListener("click", function(){ if(phase!=="idle") pause(); seekTo(0); });
+  $("backBtn").addEventListener("click", function(){ seekTo(idx-10); });
+  $("fwdBtn").addEventListener("click", function(){ seekTo(idx+10); });
+  seek.addEventListener("input", function(){ seekTo(parseInt(seek.value,10)||0); });
+
+  function wpmNoteFor(v){
+    if(v<200) return "Slower than a page —\ngood for dense text";
+    if(v<300) return "A comfortable,\nattentive pace";
+    if(v<450) return "About 2× a typical\npage-reading pace";
+    if(v<600) return "Brisk — gist stays,\ndetail thins out";
+    if(v<800) return "Skimming territory —\nbest on familiar ground";
+    return "Sprint speed — try it\non the demo passage";
+  }
+  wpmNote.style.whiteSpace = "pre-line";
+  function setWpm(v){
+    wpm = Math.max(100, Math.min(1000, Math.round(v/5)*5));
+    wpmNum.textContent = wpm;
+    wpmNote.textContent = wpmNoteFor(wpm);
+    speed.value = wpm;
+    speed.style.setProperty("--fill", ((wpm-100)/900)*100+"%");
+    var chips=document.querySelectorAll(".chip");
+    for(var i=0;i<chips.length;i++){
+      chips[i].setAttribute("aria-pressed", parseInt(chips[i].getAttribute("data-wpm"),10)===wpm ? "true":"false");
+    }
+    if(phase==="playing" && timer){
+      // keep the elapsed fraction of the current word, rescale the remainder
+      var frac = Math.min(1,(performance.now()-wordStart)/wordDelay);
+      stopTimer(); var full = delayAt(idx);
+      wordDelay = full; wordStart = performance.now()-frac*full;
+      timer = setTimeout(advance, full*(1-frac));
+    }
+    updateLoadedNote();
+    render();
+  }
+  speed.addEventListener("input", function(){ setWpm(parseInt(speed.value,10)); });
+  var chipEls=document.querySelectorAll(".chip");
+  for(var i=0;i<chipEls.length;i++){
+    chipEls[i].addEventListener("click", function(){ setWpm(parseInt(this.getAttribute("data-wpm"),10)); });
+  }
+
+  function bindToggle(id, fn){
+    var el=$(id);
+    el.addEventListener("click", function(){
+      var on = el.getAttribute("aria-pressed")==="true";
+      el.setAttribute("aria-pressed", on?"false":"true");
+      fn(!on);
+    });
+  }
+  bindToggle("smartToggle", function(on){ smart=on; recomputeTiming(); updateLoadedNote(); render(); });
+  bindToggle("countToggle", function(on){ countdownOn=on; });
+
+  var segBtns=document.querySelectorAll(".seg button");
+  for(var j=0;j<segBtns.length;j++){
+    segBtns[j].addEventListener("click", function(){
+      for(var k=0;k<segBtns.length;k++) segBtns[k].setAttribute("aria-pressed","false");
+      this.setAttribute("aria-pressed","true");
+      wordBox.className = "word "+this.getAttribute("data-size");
+      render();
+    });
+  }
+
+  $("loadBtn").addEventListener("click", function(){
+    loadFromInput();
+    if(!words.length){ input.focus(); return; }
+    window.scrollTo({top:0, behavior:"smooth"});
+    stage.focus({preventScroll:true});
+    play();
+  });
+  $("sampleBtn").addEventListener("click", function(){
+    input.value = SAMPLE; updateInputCount(); loadFromInput();
+    window.scrollTo({top:0, behavior:"smooth"});
+  });
+  $("clearBtn").addEventListener("click", function(){
+    input.value=""; updateInputCount(); loadFromInput(); input.focus();
+  });
+  function updateInputCount(){ var n=countWords(input.value); inputCount.textContent = n+(n===1?" word":" words"); updatePending(); }
+  input.addEventListener("input", updateInputCount);
+
+  var resizeRaf=0;
+  window.addEventListener("resize", function(){
+    cancelAnimationFrame(resizeRaf); resizeRaf=requestAnimationFrame(function(){ if(wAnchor.textContent) fitWord(); });
+  });
+
+  /* ---------------- keyboard ----------------
+     Shortcuts apply only when focus is nowhere in particular, on the reader stage,
+     or on a transport button. Focused controls keep their native keys:
+     Space/Enter activate buttons; arrows/Home move sliders; text fields get everything. */
+  var transport = document.querySelector(".transport");
+  document.addEventListener("keydown", function(e){
+    if(e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+    var el = document.activeElement;
+    var tag = (el && el.tagName) || "";
+    if(tag==="TEXTAREA" || (tag==="INPUT" && el.type!=="range") || tag==="SELECT" || (el && el.isContentEditable)){
+      if(e.key==="Escape") el.blur();
+      return;
+    }
+    var free = !el || el===document.body || el===document.documentElement || el===stage;
+    var onTransportBtn = tag==="BUTTON" && transport.contains(el);
+    var onSeek = el===seek;
+    if(!(free || onTransportBtn || onSeek)) return;   // settings, presets, other buttons: hands off
+
+    var k = e.key;
+    if(k===" " || k==="Spacebar" || k==="k" || k==="K"){
+      if(onTransportBtn && k!=="k" && k!=="K") return;  // native button activation
+      e.preventDefault(); togglePlay(); return;
+    }
+    if(onSeek) return;                                  // slider owns arrows / Home / End
+    if(k==="ArrowRight"){ e.preventDefault(); seekTo(idx+10); }
+    else if(k==="ArrowLeft"){ e.preventDefault(); seekTo(idx-10); }
+    else if(k==="ArrowUp"){ e.preventDefault(); setWpm(wpm+25); }
+    else if(k==="ArrowDown"){ e.preventDefault(); setWpm(wpm-25); }
+    else if(k==="Home"){ e.preventDefault(); if(phase!=="idle") pause(); seekTo(0); }
+  });
+
+  /* ---------------- init: preload the demo so Play works immediately ---------------- */
+  input.value = SAMPLE;
+  updateInputCount();
+  setWpm(350);
+  loadFromInput();
+})();
+
+</script>
+</body>
+</html>
