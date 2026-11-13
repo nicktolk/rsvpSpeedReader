@@ -6,7 +6,11 @@ Everything runs client-side. Pasted text never leaves the page.
 
 ## Features
 
-- Adjustable speed (100–1000 wpm, 5 wpm steps) with presets
+- Quick speed presets (250 easy → 900 sprint) right under Play, plus a fine 100–1000 wpm slider (5 wpm steps)
+- Tap or click the word itself to play / pause
+- End-of-read summary: your average wpm, words and time, with **Go faster** (next preset, restart) and **Read again**
+- Optional **Ramp up** mode: starts at 250 wpm and climbs linearly to your chosen speed over the first half of the passage (at most 300 words)
+- A short ~70-word demo loads by default; a longer demo is one tap away
 - Smart pauses at punctuation (including inside closing quotes/brackets) and on long words
 - Optional 3·2·1 countdown
 - Unicode-aware anchor letter (grapheme-based, works for non-Latin scripts and emoji)
@@ -22,7 +26,7 @@ Everything runs client-side. Pasted text never leaves the page.
 | ↑ / ↓ | Speed ±25 wpm |
 | Home | Back to the beginning |
 
-Shortcuts apply when focus is on the reader, its transport buttons, or nothing. Focused settings, presets and text fields keep their normal keys.
+Shortcuts apply when focus is on the reader, its transport buttons, or nothing. Focused settings, presets and text fields keep their normal keys. The shortcuts card is hidden on small or touch-first screens; the shortcuts themselves still work.
 
 ## Hosting
 

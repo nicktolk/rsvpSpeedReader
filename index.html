@@ -83,7 +83,7 @@
   .dot.live{background:var(--red);box-shadow:0 0 0 5px rgba(255,59,31,.18)}
   .pos{color:var(--stage-muted);font-variant-numeric:tabular-nums;letter-spacing:.06em;text-transform:none;font-size:13px;font-weight:600}
 
-  .word-zone{padding:10px 12px 4px;position:relative}
+  .word-zone{padding:10px 12px 4px;position:relative;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
   .guide{height:18px;position:relative;margin:0 8px}
   .guide::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(255,255,255,.14)}
   .guide::after{content:"";position:absolute;left:50%;top:2px;transform:translateX(-50%);width:2px;height:14px;background:var(--red);border-radius:2px}
@@ -120,6 +120,7 @@
     padding:2px 18px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
   .context b{color:var(--stage-ink);font-weight:700}
+  .context .hint{opacity:.8;font-style:italic}
   .context .dim{opacity:.55}
 
   .progress-wrap{padding:16px 18px 6px}
@@ -177,6 +178,11 @@
   input[type="range"].speed::-moz-range-thumb{width:18px;height:18px;border-radius:999px;background:var(--ink);border:3px solid var(--surface)}
   .scale{display:flex;justify-content:space-between;color:var(--muted);font-size:11.5px;font-variant-numeric:tabular-nums;margin-bottom:12px}
   .chips{display:flex;flex-wrap:wrap;gap:8px}
+  /* Quick speed presets, directly under the transport */
+  .quick{margin:-4px 0 4px;text-align:center}
+  .quick-label{margin:0 0 8px;font-weight:800;font-size:15px;letter-spacing:-.01em}
+  .quick .chips{justify-content:center}
+  .chip, .tbtn{touch-action:manipulation}
   .chip{
     border:1px solid var(--line);background:var(--chip);color:var(--ink);
     border-radius:999px;padding:0 14px;height:40px;min-height:40px;font-weight:700;font-size:13.5px;
@@ -219,9 +225,24 @@
   .stage:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
 
   .tips{margin-top:14px;display:grid;gap:14px}
-  @media (min-width:720px){ .tips{grid-template-columns:1fr 1fr} }
+  @media (min-width:720px){ .tips{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))} }
+  /* Shortcuts card is for keyboards: hide on small or touch-first screens (the shortcuts still work) */
+  @media (max-width:719px), (hover:none) and (pointer:coarse){ .shortcuts-panel{display:none} }
+
+  /* ---------- END-OF-READ SUMMARY ---------- */
+  .summary{padding:18px 18px 8px;text-align:center;min-height:174px}
+  .summary[hidden]{display:none}
+  .sum-kicker{font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--stage-muted)}
+  .sum-big{font-size:56px;line-height:1.05;font-weight:800;letter-spacing:-.04em;font-variant-numeric:tabular-nums;margin-top:4px}
+  .sum-big small{display:block;font-size:13px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:var(--stage-muted);margin-top:2px}
+  .sum-meta{color:var(--stage-muted);font-size:14px;margin-top:8px;font-variant-numeric:tabular-nums}
+  .sum-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:14px}
+  .sum-faster{background:var(--red);border:1px solid var(--red);color:#fff;border-radius:999px;padding:0 22px;height:48px;font-weight:800;font-size:15px}
+  .sum-again{background:transparent;border:1px solid #3a3e43;color:var(--stage-ink);border-radius:999px;padding:0 18px;height:48px;font-weight:700;font-size:14.5px}
+  .sum-faster:focus-visible, .sum-again:focus-visible{outline:3px solid #fff;outline-offset:2px}
   .tips ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;line-height:1.65}
   .tips ul b{color:var(--ink)}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   kbd{font-family:ui-monospace, SFMono-Regular, Menlo, monospace;font-size:11.5px;background:var(--surface-2);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:1px 6px;color:var(--ink);white-space:nowrap}
   .foot{color:var(--muted);font-size:12.5px;text-align:center;margin-top:22px;line-height:1.6}
   @media (prefers-reduced-motion: reduce){ *{transition:none !important} }
@@ -242,7 +263,7 @@
       <div class="pos" id="posText">0 / 0 words</div>
     </div>
 
-    <div class="word-zone">
+    <div class="word-zone" id="wordZone">
       <div class="guide" aria-hidden="true"></div>
       <div class="word medium" id="wordBox" aria-live="off">
         <span class="word-empty" id="wordEmpty"></span>
@@ -252,6 +273,17 @@
     </div>
 
     <div class="context" id="contextLine" aria-hidden="true"></div>
+
+    <div class="summary" id="summary" hidden>
+      <div class="sum-kicker">Your speed</div>
+      <div class="sum-big"><span id="sumWpm">0</span><small>words per minute</small></div>
+      <div class="sum-meta" id="sumMeta"></div>
+      <div class="sum-actions">
+        <button class="sum-faster" id="fasterBtn">Go faster</button>
+        <button class="sum-again" id="againBtn">Read again</button>
+      </div>
+    </div>
+    <p class="sr-only" id="sumLive" aria-live="polite"></p>
 
     <div class="progress-wrap">
       <input class="seek" id="seek" type="range" min="0" max="0" value="0" step="1" aria-label="Seek through text" />
@@ -277,6 +309,19 @@
     </button>
   </div>
 
+
+  <!-- QUICK SPEED -->
+  <div class="quick" role="group" aria-labelledby="quickLabel">
+    <p class="quick-label" id="quickLabel">How fast can you go?</p>
+    <div class="chips">
+      <button class="chip" data-wpm="250">250<small>easy</small></button>
+      <button class="chip" data-wpm="350">350<small>steady</small></button>
+      <button class="chip" data-wpm="500">500<small>brisk</small></button>
+      <button class="chip" data-wpm="700">700<small>fast</small></button>
+      <button class="chip" data-wpm="900">900<small>sprint</small></button>
+    </div>
+  </div>
+
   <div class="grid">
     <!-- SPEED -->
     <section class="panel" aria-label="Speed">
@@ -289,13 +334,6 @@
       </div>
       <input class="speed" id="speed" type="range" min="100" max="1000" step="5" value="350" aria-label="Words per minute" />
       <div class="scale"><span>100</span><span>300</span><span>500</span><span>700</span><span>1000</span></div>
-      <div class="chips" role="group" aria-label="Speed presets">
-        <button class="chip" data-wpm="250">250<small>easy</small></button>
-        <button class="chip" data-wpm="350">350<small>steady</small></button>
-        <button class="chip" data-wpm="500">500<small>brisk</small></button>
-        <button class="chip" data-wpm="700">700<small>fast</small></button>
-        <button class="chip" data-wpm="900">900<small>sprint</small></button>
-      </div>
     </section>
 
     <!-- SETTINGS -->
@@ -310,6 +348,10 @@
       <div class="setting">
         <div><strong>Countdown</strong><span>Show 3 · 2 · 1 before starting, so your eyes settle on the anchor.</span></div>
         <button class="toggle" id="countToggle" aria-pressed="true" aria-label="Toggle countdown"></button>
+      </div>
+      <div class="setting">
+        <div><strong>Ramp up</strong><span>Start at 250 wpm and build to your chosen speed over the first stretch of the read.</span></div>
+        <button class="toggle" id="rampToggle" aria-pressed="false" aria-label="Toggle ramp up"></button>
       </div>
       <div class="setting">
         <div><strong>Word size</strong><span>Bigger is easier at high speed.</span></div>
@@ -329,7 +371,8 @@
     <textarea id="input" aria-label="Text to read" spellcheck="false"></textarea>
     <div class="input-actions">
       <button class="primary" id="loadBtn">Load &amp; play from the top</button>
-      <button class="secondary" id="sampleBtn">Demo passage</button>
+      <button class="secondary" id="shortBtn">Quick demo</button>
+      <button class="secondary" id="sampleBtn">Longer demo</button>
       <button class="secondary" id="clearBtn">Clear</button>
       <span class="count" id="inputCount">0 words</span>
     </div>
@@ -343,10 +386,11 @@
       <ul>
         <li><b>Park your eyes on the red letter</b> and let it stay there. The anchor sits at each word's recognition point, so the word lands where your eye already is.</li>
         <li><b>Don't chase the top speed.</b> Around 250–400 wpm most people keep full comprehension. 700+ is for skimming and re-reading familiar ground.</li>
+        <li><b>Tap the word</b> to pause or resume — the whole word area is a play button.</li>
         <li><b>Lost the thread?</b> Jump back 10 words instead of restarting — the context line under the word shows your neighbors.</li>
       </ul>
     </section>
-    <section class="panel">
+    <section class="panel shortcuts-panel">
       <h2>Shortcuts</h2>
       <ul>
         <li><kbd>Space</kbd> or <kbd>K</kbd> — play / pause</li>
@@ -367,7 +411,13 @@
 
   var SAMPLE = "Here is the strange thing about reading. Your eyes do not glide smoothly across a line of text, the way you probably imagine they do. They jump. Each jump lands, holds still for a fraction of a second, takes in a small clump of words, and then jumps again. Most of the time you spend reading is not spent moving. It is spent stopped, gathering. This page removes the jumping. Instead of sending your eyes hunting across the page, it brings every word to exactly the same place, one after another, so the gathering is all that is left. The red letter is the anchor. It sits near the point in each word where your brain likes to land first, the spot that lets it recognize the whole word in a single glance. Keep your eyes parked on that letter and resist the urge to chase the words. They are coming to you. At three hundred and fifty words a minute, this probably feels brisk but manageable, like a brisk walk. At six hundred, it starts to feel like a jog. At nine hundred, you are sprinting, and sprinting is fine for a short stretch of familiar road, but nobody sprints through new country and remembers the scenery. That is the honest trade. Speed reading is not magic, and it does not repeal the limits of comprehension. What it does well is strip out the wasted motion, hold your attention in one place, and make skimming feel effortless. Use it for the article you only need the gist of, the notes you are reviewing for the third time, the chapter you want to preview before reading it properly. Slow it down for anything you actually need to think about. Now try it with something of your own. Copy a few paragraphs from whatever you were about to read, paste them below, and set a speed that feels almost too easy. Then nudge it up, ten words a minute at a time. The moment you notice you have stopped picturing what the words describe, you have found your ceiling. Back off a little from there. That number, not nine hundred, is your real reading speed, and it will climb with practice.";
 
+  var SHORT = "Eyes on the red letter. Don't chase the words \u2014 they come to you. Notice anything? You're reading without moving your eyes at all. Most people read a page at around two hundred and fifty words a minute, and the slow part isn't seeing the words. It's your eyes hopping between them. Take the hopping away and everything speeds up. When this ends, hit Go faster and find out where your ceiling is.";
+
   var EMPTY_MSG = "Press play, or load your own text below.";
+  var PRESETS = [250, 350, 500, 700, 900];
+  var RAMP_FROM = 250;        // ramp mode starting speed
+  var RAMP_MAX_WORDS = 300;   // ramp reaches full speed by half the passage, capped at this many words
+  var MIN_SUMMARY_WORDS = 10; // shorter runs (e.g. seek to the end, play one word) skip the summary
   var MIN_FONT_PX = 22;       // smallest anchored font size before falling back to wrapped layout
   var COUNT_MS = 450;
 
@@ -389,6 +439,16 @@
   var wpm = 350;
   var smart = true;
   var countdownOn = true;
+  var ramp = false;
+  /* A "run" is one read-through: it starts when Play is pressed from a fresh position and
+     ends at Finished, Restart/Home, or a new load. It anchors ramp mode and feeds the summary. */
+  var runStart = null;        // word index the run started at
+  var runWords = 0;           // words that completed their dwell during this run
+  var runMs = 0;              // time spent actually reading (excludes pauses and countdown)
+  var runT0 = 0;
+  var runTargetWpm = 0;
+  var lastRun = null;         // {words, ms, wpm, ramped} for the summary
+  var touchFirst = window.matchMedia && window.matchMedia("(hover:none) and (pointer:coarse)").matches;
 
   var $ = function(id){ return document.getElementById(id); };
   var stage=$("stage"), wordBox=$("wordBox"), wPre=$("wPre"), wAnchor=$("wAnchor"), wPost=$("wPost"), wordEmpty=$("wordEmpty"),
@@ -396,7 +456,9 @@
       seek=$("seek"), pctText=$("pctText"), etaText=$("etaText"),
       playBtn=$("playBtn"), playLabel=$("playLabel"), playIcon=$("playIcon"), pauseIcon=$("pauseIcon"),
       speed=$("speed"), wpmNum=$("wpmNum"), wpmNote=$("wpmNote"),
-      input=$("input"), inputCount=$("inputCount"), loadedNote=$("loadedNote"), pendingNote=$("pendingNote");
+      input=$("input"), inputCount=$("inputCount"), loadedNote=$("loadedNote"), pendingNote=$("pendingNote"),
+      wordZone=$("wordZone"), summary=$("summary"), sumWpm=$("sumWpm"), sumMeta=$("sumMeta"),
+      fasterBtn=$("fasterBtn"), againBtn=$("againBtn"), sumLive=$("sumLive");
 
   /* ---------------- text handling ---------------- */
   var segmenter = (typeof Intl!=="undefined" && Intl.Segmenter) ? new Intl.Segmenter(undefined,{granularity:"grapheme"}) : null;
@@ -450,12 +512,28 @@
     for(var i=words.length-1;i>=0;i--){ words[i].mult = multFor(words[i]); suffix[i] = suffix[i+1]+words[i].mult; }
   }
   function baseMs(){ return 60000/wpm; }
-  function delayAt(i){ return words[i] ? baseMs()*words[i].mult : baseMs(); }
+
+  /* Ramp mode: speed climbs linearly from RAMP_FROM to the chosen wpm across the ramp stretch.
+     Before a run starts, the ramp is previewed as if it started at the current word. */
+  function rampOrigin(){ return runStart!==null ? runStart : idx; }
+  function rampLen(){ return Math.max(20, Math.min(RAMP_MAX_WORDS, Math.floor((words.length-rampOrigin())/2))); }
+  function rampActive(){ return ramp && wpm>RAMP_FROM; }
+  function rampEnd(){ return rampActive() ? rampOrigin()+rampLen() : -1; }   // first index at full speed
+  function wpmAt(i){
+    if(!rampActive()) return wpm;
+    var p = (i-rampOrigin())/rampLen();
+    if(p>=1) return wpm;
+    if(p<0) p=0;
+    return RAMP_FROM + (wpm-RAMP_FROM)*p;
+  }
+  function delayAt(i){ return words[i] ? (60000/wpmAt(i))*words[i].mult : baseMs(); }
 
   /* Remaining reading time, using the same delays playback uses. */
   function remainingMs(){
     if(!words.length || finished) return 0;
-    var rest = baseMs()*suffix[idx+1];
+    var from = idx+1, full = Math.max(from, rampEnd()), rest = 0;
+    for(var i=from; i<Math.min(full, words.length); i++) rest += delayAt(i);   // ramp stretch: ≤ RAMP_MAX_WORDS
+    if(full < words.length) rest += baseMs()*suffix[full];
     var cur;
     if(phase==="playing" && timer){ cur = Math.max(0, wordDelay-(performance.now()-wordStart)); }
     else cur = delayAt(idx);
@@ -500,7 +578,15 @@
     seek.style.setProperty("--fill", fill+"%");
     var pct = !total ? 0 : finished ? 100 : Math.round((idx/total)*100);
     pctText.textContent = pct+"%";
-    etaText.textContent = total ? (fmtTime(remainingMs()/1000)+" left at "+wpm+" wpm") : "—";
+    var cur = Math.round(wpmAt(idx));
+    etaText.textContent = !total ? "—" :
+      fmtTime(remainingMs()/1000)+" left at "+(cur<wpm && !finished ? cur+" → "+wpm : wpm)+" wpm";
+
+    var showSum = finished && !!lastRun;
+    summary.hidden = !showSum;
+    wordZone.style.display = showSum ? "none" : "";
+    contextLine.style.display = showSum ? "none" : "";
+    if(showSum) return;
 
     if(phase==="countdown"){ showMessage(String(countN)); contextLine.textContent=""; return; }
     if(!total){ showMessage(EMPTY_MSG); contextLine.textContent=""; return; }
@@ -513,6 +599,11 @@
     var before = words.slice(Math.max(0,idx-3), idx).map(function(t){return t.text;}).join(" ");
     var after = words.slice(idx+1, idx+4).map(function(t){return t.text;}).join(" ");
     contextLine.textContent="";
+    if(phase==="idle" && idx===0 && runStart===null){
+      var h=document.createElement("span"); h.className="hint";
+      h.textContent = (touchFirst ? "Tap" : "Click")+" the word to start";
+      contextLine.appendChild(h); return;
+    }
     var s1=document.createElement("span"); s1.className="dim"; s1.textContent = before ? "… "+before+"  " : "";
     var b=document.createElement("b"); b.textContent=w.text;
     var s2=document.createElement("span"); s2.className="dim"; s2.textContent = after ? "  "+after+" …" : "";
@@ -549,16 +640,41 @@
   function advance(){
     timer = null;
     if(phase!=="playing") return;
+    runWords++;
     if(idx >= words.length-1){          // last word has had its full dwell
-      finished = true; phase = "idle"; syncUI(); return;
+      stopClock(); finished = true; phase = "idle";
+      finishRun(); syncUI(); return;
     }
     idx++;
     scheduleCurrent();
     render();
   }
 
+  function stopClock(){ if(phase==="playing") runMs += performance.now()-runT0; }
+  function resetRun(){ runStart=null; runWords=0; runMs=0; lastRun=null; }
+  function finishRun(){
+    var mins = runMs/60000;
+    lastRun = (runWords>=MIN_SUMMARY_WORDS && mins>0) ?
+      { words:runWords, ms:runMs, wpm:Math.round(runWords/mins), target:runTargetWpm, ramped:ramp && runTargetWpm>RAMP_FROM } : null;
+    runStart = null;
+    if(lastRun){
+      sumWpm.textContent = lastRun.wpm;
+      sumMeta.textContent = lastRun.words+" words in "+fmtTime(lastRun.ms/1000)+" · set to "+lastRun.target+" wpm"+
+        (lastRun.ramped ? " (ramped from "+RAMP_FROM+")" : "")+(smart ? " with smart pauses" : "");
+      var next = nextPreset(wpm);
+      fasterBtn.hidden = !next;
+      if(next) fasterBtn.textContent = "Go faster → "+next+" wpm";
+      sumLive.textContent = "Finished: "+lastRun.wpm+" words per minute, "+sumMeta.textContent+".";
+    }
+  }
+  function nextPreset(v){
+    for(var i=0;i<PRESETS.length;i++) if(PRESETS[i]>v) return PRESETS[i];
+    return v<1000 ? 1000 : 0;
+  }
+
   function startReading(){
     phase = "playing";
+    runT0 = performance.now();
     scheduleCurrent();
     syncUI();
   }
@@ -568,7 +684,8 @@
       loadFromInput();
       if(!words.length){ input.focus(); return; }
     }
-    if(finished){ idx = 0; finished = false; }
+    if(finished){ idx = 0; finished = false; resetRun(); }
+    if(runStart===null){ runStart = idx; runWords = 0; runMs = 0; runTargetWpm = wpm; lastRun = null; sumLive.textContent=""; }
     if(countdownOn){
       stopTimer();
       phase = "countdown"; countN = 3; syncUI();
@@ -585,6 +702,7 @@
 
   function pause(){
     stopTimer();
+    stopClock();
     phase = "idle";
     syncUI();
   }
@@ -624,13 +742,20 @@
     loadedText = input.value;
     words = tokenize(loadedText).map(splitWord);
     recomputeTiming();
-    idx = 0; finished = false;
+    idx = 0; finished = false; resetRun();
     updateLoadedNote(); updatePending(); syncUI();
   }
 
   /* ---------------- controls ---------------- */
   playBtn.addEventListener("click", togglePlay);
-  $("restartBtn").addEventListener("click", function(){ if(phase!=="idle") pause(); seekTo(0); });
+  function restart(){ if(phase!=="idle") pause(); resetRun(); seekTo(0); }
+  $("restartBtn").addEventListener("click", restart);
+  wordZone.addEventListener("click", togglePlay);   // the word itself is a big play/pause target
+  fasterBtn.addEventListener("click", function(){
+    var next = nextPreset(wpm); if(!next) return;
+    setWpm(next); restart(); play();
+  });
+  againBtn.addEventListener("click", function(){ restart(); play(); });
   $("backBtn").addEventListener("click", function(){ seekTo(idx-10); });
   $("fwdBtn").addEventListener("click", function(){ seekTo(idx+10); });
   seek.addEventListener("input", function(){ seekTo(parseInt(seek.value,10)||0); });
@@ -654,6 +779,7 @@
     for(var i=0;i<chips.length;i++){
       chips[i].setAttribute("aria-pressed", parseInt(chips[i].getAttribute("data-wpm"),10)===wpm ? "true":"false");
     }
+    if(phase==="playing") runTargetWpm = wpm;
     if(phase==="playing" && timer){
       // keep the elapsed fraction of the current word, rescale the remainder
       var frac = Math.min(1,(performance.now()-wordStart)/wordDelay);
@@ -680,6 +806,7 @@
   }
   bindToggle("smartToggle", function(on){ smart=on; recomputeTiming(); updateLoadedNote(); render(); });
   bindToggle("countToggle", function(on){ countdownOn=on; });
+  bindToggle("rampToggle", function(on){ ramp=on; render(); });
 
   var segBtns=document.querySelectorAll(".seg button");
   for(var j=0;j<segBtns.length;j++){
@@ -697,6 +824,10 @@
     window.scrollTo({top:0, behavior:"smooth"});
     stage.focus({preventScroll:true});
     play();
+  });
+  $("shortBtn").addEventListener("click", function(){
+    input.value = SHORT; updateInputCount(); loadFromInput();
+    window.scrollTo({top:0, behavior:"smooth"});
   });
   $("sampleBtn").addEventListener("click", function(){
     input.value = SAMPLE; updateInputCount(); loadFromInput();
@@ -741,11 +872,11 @@
     else if(k==="ArrowLeft"){ e.preventDefault(); seekTo(idx-10); }
     else if(k==="ArrowUp"){ e.preventDefault(); setWpm(wpm+25); }
     else if(k==="ArrowDown"){ e.preventDefault(); setWpm(wpm-25); }
-    else if(k==="Home"){ e.preventDefault(); if(phase!=="idle") pause(); seekTo(0); }
+    else if(k==="Home"){ e.preventDefault(); restart(); }
   });
 
-  /* ---------------- init: preload the demo so Play works immediately ---------------- */
-  input.value = SAMPLE;
+  /* ---------------- init: preload the quick demo so Play works immediately ---------------- */
+  input.value = SHORT;
   updateInputCount();
   setWpm(350);
   loadFromInput();
