@@ -10,7 +10,7 @@ Everything runs client-side. Pasted text never leaves the page.
 - Tap or click the word itself to play / pause
 - End-of-read summary: your average wpm, words and time, with **Go faster** (next preset, restart) and **Read again**
 - Optional **Ramp up** mode: starts at 250 wpm and climbs linearly to your chosen speed over the first half of the passage (at most 300 words)
-- A short ~70-word demo loads by default; a longer demo is one tap away
+- The longer demo loads by default; a short ~70-word quick demo is one tap away
 - Smart pauses at punctuation (including inside closing quotes/brackets) and on long words
 - Optional 3·2·1 countdown
 - Unicode-aware anchor letter (grapheme-based, works for non-Latin scripts and emoji)
